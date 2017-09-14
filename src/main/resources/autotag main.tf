@@ -1,79 +1,132 @@
-## Terraform Module. 
-# EC2 AutoTag - At a scheduled time a Lambda function creates the tags for all instances within region
-# The autoTag.zip files are zipped functions built from here:
-# http://git.tpp.tsysecom.com:8080/projects/ENAWS/repos/iac-framework/browse/lambda
+terraform {
+	required_version = ">= 0.9.6"
+	backend "s3" {
+		bucket = "iac-framework"
+		key    = "autotag.tfstate"
+		region = "eu-west-1"
+		encrypt	= "true"
+	}
+}
 
 ## Providers ##
-
 provider "aws" {
-	alias 	= "theregion"
-	region 	= "${var.region}"
+  region = "${var.region}"
 }
 
 ## Data sources ##
-data "archive_file" "AutoTagZip" {
-    type        = "zip"
-    source_file  = "../../../lambda/autoTag.py"
-    output_path = "AutoTag.zip"
-}
+
 
 ## Resources ##
+resource "aws_s3_bucket_object" "mandatory-ec2-keys" {
+  depends_on = ["aws_s3_bucket.GlobalVariablesBucket"]
+  bucket = "${aws_s3_bucket.GlobalVariablesBucket.id}"
+  key    = "tagging-ec2-mandatory-keys.txt"
+  source = "Tags/ec2-mandatory-keys.txt"
+  server_side_encryption = "AES256"
+}
 
-resource "aws_cloudwatch_event_rule" "autotagwatcher" {
-	provider = "aws.theregion"
-	name = "AutoTagWatcher"
-	description = "Auto create EC2 tags on provision"
-	event_pattern = <<PATTERN
+resource "aws_s3_bucket_object" "mandatory-ec2-valuedefaults" {
+  depends_on = ["aws_s3_bucket.GlobalVariablesBucket"]
+  bucket = "${aws_s3_bucket.GlobalVariablesBucket.id}"
+  key    = "tagging-ec2-mandatory-key-values.txt"
+  source = "Tags/ec2-mandatory-key-values.txt"
+  server_side_encryption = "AES256"
+}
+
+resource "aws_iam_role" "lamdba_role" {
+    name = "lambdaAutoTagRole"
+    assume_role_policy = <<EOF
 {
-  "source": [
-    "aws.ec2"
-  ],
-  "detail-type": [
-    "AWS API Call via CloudTrail"
-  ],
-  "detail": {
-    "eventSource": [
-      "ec2.amazonaws.com"
-    ],
-    "eventName": [
-      "RunInstances",
-      "CreateVolume",
-      "CreateSnapshot",
-      "CreateImage"
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "lambda_policy" {
+    name = "lambdaAutoTagPolicy"
+    role = "${aws_iam_role.lamdba_role.id}"
+    policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudtrail:LookupEvents"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateTags",
+                "ec2:Describe*",
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:List*",
+                "s3:GetObject"
+            ],
+            "Resource": "arn:aws:s3:::${aws_s3_bucket.GlobalVariablesBucket.id}/*"
+        }
     ]
-  }
 }
-PATTERN
+EOF
 }
 
-
-
-resource "aws_lambda_function" "AutoTagBasic" {
-	provider = "aws.theregion"
-	filename = "AutoTag.zip"
-    source_code_hash = "${data.archive_file.AutoTagZip.output_base64sha256}"
-    function_name = "AutoTagBasic-${var.region}"
-	description = "Automatically add Owner, PrincipalId and NonStop tags"
-	runtime = "python3.6"
-	timeout = 60
-    role = "${var.lambda_role}"
-    handler = "autoTag.lambda_handler"
+module "ec2autotag-virginia" {
+	source 				= "git::http://git.tpp.tsysecom.com:8080/scm/enaws/iac-framework-modules.git//autotag"
+# Local source location added for local testing before upload of module to repo. 
+#	source				= "../../../../iac-framework-modules/autotag"
+	region 			 	= "us-east-1"
+	lambda_role			= "${aws_iam_role.lamdba_role.arn}"
+    account             = "${var.account}"
+    bucketregion        = "${var.region}"
 }
 
 
-
-resource "aws_cloudwatch_event_target" "autotagwatcher" {
-    provider = "aws.theregion"
-	rule = "${aws_cloudwatch_event_rule.autotagwatcher.name}"
-    arn = "${aws_lambda_function.AutoTagBasic.arn}"
+module "ec2autotag-oregon" {
+	source 				= "git::http://git.tpp.tsysecom.com:8080/scm/enaws/iac-framework-modules.git//autotag"
+# Local source location added for local testing before upload of module to repo. 
+#	source				= "../../../../iac-framework-modules/autotag"
+	region 			 	= "us-west-2"
+	lambda_role			= "${aws_iam_role.lamdba_role.arn}"
+    account             = "${var.account}"
+    bucketregion        = "${var.region}"
 }
 
+module "ec2autotag-frankfurt" {
+	source 				= "git::http://git.tpp.tsysecom.com:8080/scm/enaws/iac-framework-modules.git//autotag"
+# Local source location added for local testing before upload of module to repo. 
+#	source				= "../../../../iac-framework-modules/autotag"
+	region 			 	= "eu-central-1"
+	lambda_role			= "${aws_iam_role.lamdba_role.arn}"
+    account             = "${var.account}"
+    bucketregion        = "${var.region}"
+}
 
-resource "aws_lambda_permission" "allow_cloudwatch_to_call_AutoTagBasic" {
-    provider = "aws.theregion"
-	statement_id = "AllowExecutionFromCloudWatch"
-    action = "lambda:InvokeFunction"
-    function_name = "${aws_lambda_function.AutoTagBasic.function_name}"
-    principal = "events.amazonaws.com"
-    source_arn = "${aws_cloudwatch_event_rule.autotagwatcher.arn}"
+module "ec2autotag-mumbai" {
+	source 				= "git::http://git.tpp.tsysecom.com:8080/scm/enaws/iac-framework-modules.git//autotag"
+# Local source location added for local testing before upload of module to repo. 
+#	source				= "../../../../iac-framework-modules/autotag"
+	region 			 	= "ap-south-1"
+	lambda_role			= "${aws_iam_role.lamdba_role.arn}"
+    account             = "${var.account}"
+    bucketregion        = "${var.region}"
 }
