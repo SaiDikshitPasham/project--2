@@ -157,11 +157,11 @@ def lambda_handler(event, context):
                             ec2.create_tags(Resources=res_list, Tags=default_tags)      
                             
               elif eventname == 'CreateVpc':
-                    print('Attempting to bind tags to Image: ', resourceid)
-                    img_filter = [{'Name': 'vpc-id', 'Values': [resourceid]}]
-                    for ec2image in client.describe-vpcs(Filters = vpc_filter)['Vpcs']:
+                    print('Attempting to bind tags to Vpc: ', resourceid)
+                    vpc_filter = [{'Name': 'vpc-id', 'Values': [resourceid]}]
+                    for ec2vpc in client.describe_vpcs(Filters = vpc_filter)['Vpcs']:
                         if 'Tags' in ec2vpc:
-                            #Pass all Image tags in to tag_gen
+                            #Pass all vpc tags in to tag_gen
                             tags = ec2vpc['Tags']
                             tag_gen(tags, res_list,default_tags)
                         else:
