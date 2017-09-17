@@ -85,6 +85,12 @@ def lambda_handler(event, context):
 
             ids.append(detail['responseElements']['imageId'])
             logger.info(ids)
+       elif eventname == 'CreateVpc':
+
+            ids.append(detail['responseElements']['vpcId'])
+            logger.info(ids)
+            
+            
         elif eventname == 'CreateSnapshot':
 
             ids.append(detail['responseElements']['snapshotId'])
@@ -148,8 +154,21 @@ def lambda_handler(event, context):
                             tag_gen(tags, res_list,default_tags)
                         else:
                             #If no tags are found, add the defaults
-                            ec2.create_tags(Resources=res_list, Tags=default_tags)                                
-                elif eventname == 'CreateVolume':
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)      
+                            
+              elif eventname == 'CreateVpc':
+                    print('Attempting to bind tags to Image: ', resourceid)
+                    img_filter = [{'Name': 'vpc-id', 'Values': [resourceid]}]
+                    for ec2image in client.describe-vpcs(Filters = vpc_filter)['Vpcs']:
+                        if 'Tags' in ec2vpc:
+                            #Pass all Image tags in to tag_gen
+                            tags = ec2vpc['Tags']
+                            tag_gen(tags, res_list,default_tags)
+                        else:
+                            #If no tags are found, add the defaults
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)        
+                            
+              elif eventname == 'CreateVolume':
                     print('Attempting to bind tags to Volume: ', resourceid)
                     vol_filter = [{'Name': 'volume-id', 'Values': [resourceid]}]
                     for ec2volume in client.describe_volumes()['Volumes']:
