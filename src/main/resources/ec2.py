@@ -156,7 +156,7 @@ def lambda_handler(event, context):
                             #If no tags are found, add the defaults
                             ec2.create_tags(Resources=res_list, Tags=default_tags)      
                             
-              elif eventname == 'CreateVpc':
+                elif eventname == 'CreateVpc':
                     print('Attempting to bind tags to Vpc: ', resourceid)
                     vpc_filter = [{'Name': 'vpc-id', 'Values': [resourceid]}]
                     for ec2vpc in client.describe_vpcs(Filters = vpc_filter)['Vpcs']:
@@ -168,7 +168,7 @@ def lambda_handler(event, context):
                             #If no tags are found, add the defaults
                             ec2.create_tags(Resources=res_list, Tags=default_tags)        
                             
-              elif eventname == 'CreateVolume':
+                elif eventname == 'CreateVolume':
                     print('Attempting to bind tags to Volume: ', resourceid)
                     vol_filter = [{'Name': 'volume-id', 'Values': [resourceid]}]
                     for ec2volume in client.describe_volumes()['Volumes']:
