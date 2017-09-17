@@ -87,7 +87,7 @@ def lambda_handler(event, context):
             logger.info(ids)
        elif eventname == 'CreateVpc':
 
-            ids.append(detail['responseElements']['vpcId'])
+            ids.append(detail['responseElements']['vpc']['vpcId'])
             logger.info(ids)
             
             
