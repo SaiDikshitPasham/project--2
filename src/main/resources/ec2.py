@@ -29,7 +29,7 @@ def lambda_handler(event, context):
     ids = []
     ec2 = boto3.resource('ec2')
     client = boto3.client('ec2')
-    
+
     try:
         region = event['region']
         detail = event['detail']
@@ -75,7 +75,7 @@ def lambda_handler(event, context):
             base = ec2.instances.filter(InstanceIds=ids)
 
             # loop through the instances
-            
+
             for instance in base:
                 for vol in instance.volumes.all():
                     ids.append(vol.id)
@@ -89,8 +89,19 @@ def lambda_handler(event, context):
 
             ids.append(detail['responseElements']['vpc']['vpcId'])
             logger.info(ids)
-            
-            
+
+        # Subnet
+        elif eventname == 'CreateSubnet':
+
+            ids.append(detail['responseElements']['subnet']['subnetId'])
+            logger.info(ids)
+
+        # security group
+        elif eventname == 'CreateSecurityGroup':
+
+            ids.append(detail['responseElements']['groupId'])
+            logger.info(ids)
+
         elif eventname == 'CreateSnapshot':
 
             ids.append(detail['responseElements']['snapshotId'])
@@ -104,8 +115,8 @@ def lambda_handler(event, context):
         MAXIMUM of 50 Tags TOTAL including ones already set.
         {'Key': '******','Value': ******}
         """
-        
-        
+
+
         if ids:
             get_bucket_name()
             get_data_from_files()
@@ -128,11 +139,11 @@ def lambda_handler(event, context):
                     for key in all_key_names:
                         default_tags.append({'Key': key, 'Value': all_default_values[c]})
                         c = c+1
-                
+
                 """
                 If statements for individual resources, from top to bottom- Instances- Images- Volumes- Snapshots
                 """
-                    
+
                 if eventname == 'RunInstances':
                     print('Attempting to bind tags to Instance: ', resourceid)
                     ins_filter = [{'Name': 'instance-id', 'Values': [resourceid]}]
@@ -154,8 +165,8 @@ def lambda_handler(event, context):
                             tag_gen(tags, res_list,default_tags)
                         else:
                             #If no tags are found, add the defaults
-                            ec2.create_tags(Resources=res_list, Tags=default_tags)      
-                            
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+
                 elif eventname == 'CreateVpc':
                     print('Attempting to bind tags to Vpc: ', resourceid)
                     vpc_filter = [{'Name': 'vpc-id', 'Values': [resourceid]}]
@@ -166,8 +177,34 @@ def lambda_handler(event, context):
                             tag_gen(tags, res_list,default_tags)
                         else:
                             #If no tags are found, add the defaults
-                            ec2.create_tags(Resources=res_list, Tags=default_tags)        
-                            
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+
+                elif eventname == 'CreateSubnet':
+                    print('Attempting to bind tags to Subnet: ', resourceid)
+                    subnet_filter = [{'Name': 'subnet-id', 'Values': [resourceid]}]
+                    # logger.info('Subnets Fileter '+str(client.describe_subnets(Filters=subnet_filter)))
+                    for subnet in client.describe_subnets(Filters=subnet_filter)['Subnets']:
+                        if 'Tags' in subnet:
+                            # Pass all vpc tags in to tag_gen
+                            tags = subnet['Tags']
+                            tag_gen(tags, res_list, default_tags)
+                        else:
+                            # If no tags are found, add the defaults
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+
+                elif eventname == 'CreateSecurityGroup':
+                    print('Attempting to bind tags to Security Group: ', resourceid)
+                    security_group_filter = [{'Name': 'group-id', 'Values': [resourceid]}]
+                    # logger.info(str(client.describe_security_groups(Filters=security_group_filter)))
+                    for ec2securitygroup in client.describe_security_groups(Filters=security_group_filter)['SecurityGroups']:
+                        if 'Tags' in ec2securitygroup:
+                            # Pass all vpc tags in to tag_gen
+                            tags = ec2securitygroup['Tags']
+                            tag_gen(tags, res_list, default_tags)
+                        else:
+                            # If no tags are found, add the defaults
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+
                 elif eventname == 'CreateVolume':
                     print('Attempting to bind tags to Volume: ', resourceid)
                     vol_filter = [{'Name': 'volume-id', 'Values': [resourceid]}]
@@ -178,7 +215,7 @@ def lambda_handler(event, context):
                             tag_gen(tags, res_list,default_tags)
                         else:
                             #If no tags are found, add the defaults
-                            ec2.create_tags(Resources=res_list, Tags=default_tags)                
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
                 elif eventname == 'CreateSnapshot':
                     print('Attempting to bind tags to Snapshot: ', resourceid)
                     snap_filter = [{'Name': 'snapshot-id', 'Values': [resourceid]}]
@@ -189,16 +226,16 @@ def lambda_handler(event, context):
                             tag_gen(tags, res_list,default_tags)
                         else:
                             #If no tags are found, add the defaults
-                            ec2.create_tags(Resources=res_list, Tags=default_tags)                            
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
                 else:
                     logger.warning('Unrecognised Event')
         return True
     except Exception as e:
         logger.error('Something went wrong: ' + str(e))
         return False
-        
-        
-        
+
+
+
 """
 Function for scanning and applying new tags (if any)
 """
@@ -236,7 +273,7 @@ def tag_gen(tags, res_list,default_tags):
         ec2.create_tags(Resources=res_list, Tags=final_tags)
     except Exception as e:
         print('Error when creating tags on Resource: ', res_list, '\n', e)
-        
+
 """
 Function for checking the new tag list for the default tags
 """
@@ -245,7 +282,7 @@ def add_default_tags(default_tags, new_tags_list):
     missing_tags_list = []
     final_tags_list = []
     #Loop through default tags
-    
+
     try:
         for x in default_tags:
             in_list = False
