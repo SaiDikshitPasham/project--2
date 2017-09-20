@@ -106,6 +106,21 @@ def lambda_handler(event, context):
 
             ids.append(detail['responseElements']['snapshotId'])
             logger.info(ids)
+
+        elif eventname == 'CreateVpcPeeringConnection':
+            ids.append(detail['responseElements']['vpcPeeringConnection']['vpcPeeringConnectionId'])
+            logger.info(ids)
+
+        elif eventname == 'CreateNetworkInterface':
+            ids.append(detail['responseElements']['networkInterface']['networkInterfaceId'])
+            logger.info(ids)
+        elif eventname == 'CreateCustomerGateway':
+            ids.append(detail['responseElements']['customerGateway']['customerGatewayId'])
+            logger.info(ids)
+        elif eventname == 'CreateVpnConnection':
+            ids.append(detail['responseElements']['vpnConnection']['vpnConnectionId'])
+            logger.info(ids)
+
         else:
             logger.warning('Not supported action')
 
@@ -226,6 +241,50 @@ def lambda_handler(event, context):
                             tag_gen(tags, res_list,default_tags)
                         else:
                             #If no tags are found, add the defaults
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+                elif eventname == 'CreateVpcPeeringConnection':
+                    print('Attempting to bind tags to CreateVpcPeeringConnection: ', resourceid)
+                    vpc_peering_filter = [{'Name': 'vpc-peering-connection-id', 'Values': [resourceid]}]
+                    for ec2snapshot in client.describe_vpc_peering_connections(Filters=vpc_peering_filter)['VpcPeeringConnections']:
+                        if 'Tags' in ec2snapshot:
+                            # Pass all Snapshot tags in to tag_gen
+                            tags = ec2snapshot['Tags']
+                            tag_gen(tags, res_list, default_tags)
+
+                elif eventname == 'CreateNetworkInterface':
+                    print('Attempting to bind tags to ENI: ', resourceid)
+                    network_interface_filter = [{'Name': 'network-interface-id', 'Values': [resourceid]}]
+                    for ec2snapshot in client.describe_network_interfaces(Filters=network_interface_filter)['NetworkInterfaces']:
+                        if 'Tags' in ec2snapshot:
+                            # Pass all Snapshot tags in to tag_gen
+                            tags = ec2snapshot['Tags']
+                            tag_gen(tags, res_list, default_tags)
+                        else:
+                            # If no tags are found, add the defaults
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+
+                elif eventname == 'CreateCustomerGateway':
+                    print('Attempting to bind tags to CreateCustomerGateway: ', resourceid)
+                    customer_gateway_filter = [{'Name': 'customer-gateway-id', 'Values': [resourceid]}]
+                    for ec2snapshot in client.describe_customer_gateways(Filters=customer_gateway_filter)['CustomerGateways']:
+                        if 'Tags' in ec2snapshot:
+                            # Pass all Snapshot tags in to tag_gen
+                            tags = ec2snapshot['Tags']
+                            tag_gen(tags, res_list, default_tags)
+                        else:
+                            # If no tags are found, add the defaults
+                            ec2.create_tags(Resources=res_list, Tags=default_tags)
+
+                elif eventname == 'CreateVpnConnection':
+                    print('Attempting to bind tags to CreateVpnConnection: ', resourceid)
+                    vpn_connections_filter = [{'Name': 'vpn-connection-id', 'Values': [resourceid]}]
+                    for ec2snapshot in client.describe_vpn_connections(Filters=vpn_connections_filter)['VpnConnections']:
+                        if 'Tags' in ec2snapshot:
+                            # Pass all Snapshot tags in to tag_gen
+                            tags = ec2snapshot['Tags']
+                            tag_gen(tags, res_list, default_tags)
+                        else:
+                            # If no tags are found, add the defaults
                             ec2.create_tags(Resources=res_list, Tags=default_tags)
                 else:
                     logger.warning('Unrecognised Event')
