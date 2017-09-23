@@ -1,0 +1,9 @@
+1 error(s) occurred:
+
+* module root: 5 error(s) occurred:
+
+* aws_s3_bucket_object.mandatory-ec2-keys: resource depends on non-existent resource 'aws_s3_bucket.GlobalVariablesBucket'
+* aws_s3_bucket_object.mandatory-ec2-valuedefaults: resource depends on non-existent resource 'aws_s3_bucket.GlobalVariablesBucket'
+* resource 'aws_s3_bucket_object.mandatory-ec2-valuedefaults' config: unknown resource 'aws_s3_bucket.GlobalVariablesBucket' referenced in variable aws_s3_bucket.GlobalVariablesBucket.id
+* resource 'aws_iam_role_policy.lambda_policy' config: unknown resource 'aws_s3_bucket.GlobalVariablesBucket' referenced in variable aws_s3_bucket.GlobalVariablesBucket.id
+* resource 'aws_s3_bucket_object.mandatory-ec2-keys' config: unknown resource 'aws_s3_bucket.GlobalVariablesBucket' referenced in variable aws_s3_bucket.GlobalVariablesBucket.id
